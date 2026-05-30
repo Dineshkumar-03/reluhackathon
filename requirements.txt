@@ -4,5 +4,5 @@ requests==2.32.3
 beautifulsoup4==4.12.3
 lxml==5.2.2
 rapidfuzz==3.9.3
-google-genai==1.5.0
+groq==0.9.0
 gunicorn==22.0.0
