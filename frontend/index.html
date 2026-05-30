@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Company Enrichment Tool</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d2e;
+      --surface2: #252840;
+      --accent: #6c63ff;
+      --accent2: #a78bfa;
+      --success: #22c55e;
+      --error: #ef4444;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --border: #2d3356;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #1a1d2e 0%, #252840 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header .logo { font-size: 28px; }
+    header h1 { font-size: 1.4rem; font-weight: 700; color: var(--accent2); }
+    header p  { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── Layout ── */
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 24px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 768px) {
+      main { grid-template-columns: 1fr; }
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--accent2);
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── Inputs ── */
+    .field { margin-bottom: 14px; }
+    .field label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .field input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field input:focus { border-color: var(--accent); }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover:not(:disabled) { opacity: 0.85; }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover:not(:disabled) { border-color: var(--accent); }
+
+    /* ── Status / Spinner ── */
+    .status {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+    }
+    .status.loading { display: flex; background: rgba(108,99,255,0.12); color: var(--accent2); }
+    .status.success { display: flex; background: rgba(34,197,94,0.1); color: var(--success); }
+    .status.error   { display: flex; background: rgba(239,68,68,0.1); color: var(--error); }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    /* ── Result Card ── */
+    .result-box {
+      display: none;
+      margin-top: 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .result-box.visible { display: block; }
+
+    .result-header {
+      background: linear-gradient(90deg, var(--accent) 0%, #8b5cf6 100%);
+      padding: 12px 18px;
+    }
+    .result-header h3 { font-size: 1rem; color: white; }
+    .result-header span { font-size: 0.75rem; color: rgba(255,255,255,0.7); }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+    .result-field {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .result-field:nth-child(odd) { border-right: 1px solid var(--border); }
+    .result-field.full {
+      grid-column: 1 / -1;
+      border-right: none;
+    }
+    .result-field .label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+    .result-field .value {
+      font-size: 0.85rem;
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .result-field .value.tag {
+      display: inline-block;
+      background: rgba(108,99,255,0.2);
+      color: var(--accent2);
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      margin: 2px 2px 2px 0;
+    }
+
+    /* ── Results Table ── */
+    .results-section {
+      grid-column: 1 / -1;
+    }
+    .results-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .results-count {
+      margin-left: auto;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    thead tr { background: var(--surface2); }
+    thead th {
+      padding: 12px 14px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(108,99,255,0.06); }
+    tbody td {
+      padding: 11px 14px;
+      vertical-align: top;
+      color: var(--text);
+      max-width: 220px;
+    }
+    .cell-wrap { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pill {
+      display: inline-block;
+      background: rgba(34,197,94,0.12);
+      color: var(--success);
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      margin: 1px;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--muted);
+    }
+    .empty-state .icon { font-size: 36px; margin-bottom: 10px; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-size: 0.85rem;
+      color: var(--text);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 999;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🔍</div>
+  <div>
+    <h1>Company Enrichment Tool</h1>
+    <p>AI-powered business intelligence from company websites</p>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── Enrich Section ── -->
+  <div class="card">
+    <h2>⚡ Enrich Company</h2>
+
+    <div class="field">
+      <label>Website Name (optional label)</label>
+      <input type="text" id="websiteName" placeholder="e.g. Zoho CRM" />
+    </div>
+    <div class="field">
+      <label>Company URL *</label>
+      <input type="url" id="companyUrl" placeholder="https://zoho.com"
+             onkeydown="if(event.key==='Enter') enrichCompany()" />
+    </div>
+
+    <button class="btn btn-primary" onclick="enrichCompany()" id="enrichBtn">
+      <span>🚀</span> Enrich
+    </button>
+
+    <div class="status" id="enrichStatus">
+      <div class="spinner"></div>
+      <span id="enrichStatusText">Analysing website...</span>
+    </div>
+
+    <div class="result-box" id="resultBox">
+      <div class="result-header">
+        <h3 id="resultTitle">—</h3>
+        <span id="resultUrl">—</span>
+      </div>
+      <div class="result-grid" id="resultGrid"></div>
+    </div>
+  </div>
+
+  <!-- ── Info / Tips ── -->
+  <div class="card" style="align-self: start;">
+    <h2>💡 How it works</h2>
+    <ol style="padding-left:18px; line-height:2; color: var(--muted); font-size:0.88rem;">
+      <li>Enter any company website URL</li>
+      <li>The system scrapes relevant pages (About, Contact, Services)</li>
+      <li>AI extracts business insights and contact data</li>
+      <li>Results are saved and displayed instantly</li>
+    </ol>
+    <div style="margin-top:18px; padding:12px; background:var(--surface2); border-radius:8px; font-size:0.8rem; color:var(--muted);">
+      <strong style="color:var(--accent2);">⚠️ Note:</strong> Enrichment may take 10–30 seconds per URL depending on site complexity.
+    </div>
+  </div>
+
+  <!-- ── Results Section ── -->
+  <div class="card results-section">
+    <div class="results-controls">
+      <h2 style="margin-bottom:0;">📊 All Results</h2>
+      <button class="btn btn-secondary" onclick="loadResults()" id="loadBtn">
+        <span>🔄</span> Show All Results
+      </button>
+      <span class="results-count" id="resultsCount"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table id="resultsTable">
+        <thead>
+          <tr>
+            <th>Website</th>
+            <th>Company</th>
+            <th>Core Service</th>
+            <th>Target Customer</th>
+            <th>Emails</th>
+            <th>Phone</th>
+            <th>Address</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody">
+          <tr>
+            <td colspan="7">
+              <div class="empty-state">
+                <div class="icon">📭</div>
+                <div>Click "Show All Results" to load enriched companies</div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+
+<script>
+  // ── Config: point this at your backend ──────────────────────
+  // For local dev: "http://localhost:5000"
+  // For deployed:  "https://your-app.onrender.com"
+  const API_BASE = window.location.hostname === "localhost"
+    ? "http://localhost:5000"
+    : "";   // same origin when frontend is served by Flask
+
+  // ── Enrich ──────────────────────────────────────────────────
+  async function enrichCompany() {
+    const url  = document.getElementById("companyUrl").value.trim();
+    const name = document.getElementById("websiteName").value.trim();
+
+    if (!url) { showToast("Please enter a URL"); return; }
+
+    setStatus("loading", "Scraping website and analysing with AI…");
+    document.getElementById("enrichBtn").disabled = true;
+    document.getElementById("resultBox").classList.remove("visible");
+
+    try {
+      const res = await fetch(`${API_BASE}/enrich`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, website_name: name }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setStatus("error", data.error || "Enrichment failed");
+        return;
+      }
+
+      setStatus("success", `✅ Enriched: ${data.company_name || data.website_name}`);
+      renderResult(data);
+      showToast("Company enriched successfully!");
+
+    } catch (err) {
+      setStatus("error", "Network error — is the backend running?");
+      console.error(err);
+    } finally {
+      document.getElementById("enrichBtn").disabled = false;
+    }
+  }
+
+  function renderResult(d) {
+    document.getElementById("resultTitle").textContent =
+      d.company_name !== "N/A" ? d.company_name : d.website_name;
+    document.getElementById("resultUrl").textContent = d.website_name;
+
+    const grid = document.getElementById("resultGrid");
+    const emails = Array.isArray(d.mail) ? d.mail : [];
+
+    grid.innerHTML = `
+      <div class="result-field">
+        <div class="label">Core Service</div>
+        <div class="value">${esc(d.core_service)}</div>
+      </div>
+      <div class="result-field">
+        <div class="label">Target Customer</div>
+        <div class="value">${esc(d.target_customer)}</div>
+      </div>
+      <div class="result-field">
+        <div class="label">📞 Phone</div>
+        <div class="value">${esc(d.mobile_number) || '<span style="color:var(--muted)">—</span>'}</div>
+      </div>
+      <div class="result-field">
+        <div class="label">📍 Address</div>
+        <div class="value">${esc(d.address) || '<span style="color:var(--muted)">—</span>'}</div>
+      </div>
+      <div class="result-field full">
+        <div class="label">📧 Emails</div>
+        <div class="value">
+          ${emails.length
+            ? emails.map(e => `<span class="tag">${esc(e)}</span>`).join("")
+            : '<span style="color:var(--muted)">None found</span>'}
+        </div>
+      </div>
+      <div class="result-field full">
+        <div class="label">Pain Point</div>
+        <div class="value">${esc(d.probable_pain_point)}</div>
+      </div>
+      <div class="result-field full" style="border-bottom:none">
+        <div class="label">💬 Outreach Opener</div>
+        <div class="value" style="font-style:italic;color:var(--accent2);">${esc(d.outreach_opener)}</div>
+      </div>
+    `;
+
+    document.getElementById("resultBox").classList.add("visible");
+  }
+
+  // ── Load All Results ─────────────────────────────────────────
+  async function loadResults() {
+    document.getElementById("loadBtn").disabled = true;
+    document.getElementById("loadBtn").innerHTML = '<span class="spinner"></span> Loading…';
+
+    try {
+      const res  = await fetch(`${API_BASE}/results`);
+      const data = await res.json();
+      renderTable(data);
+      document.getElementById("resultsCount").textContent =
+        `${data.length} compan${data.length === 1 ? "y" : "ies"}`;
+    } catch (err) {
+      showToast("Could not load results — is the backend running?");
+      console.error(err);
+    } finally {
+      document.getElementById("loadBtn").disabled = false;
+      document.getElementById("loadBtn").innerHTML = '<span>🔄</span> Show All Results';
+    }
+  }
+
+  function renderTable(rows) {
+    const tbody = document.getElementById("resultsBody");
+
+    if (!rows || rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7">
+        <div class="empty-state">
+          <div class="icon">📭</div>
+          <div>No results yet. Enrich a company to get started.</div>
+        </div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.map(d => {
+      const emails = Array.isArray(d.mail) ? d.mail : [];
+      return `
+      <tr>
+        <td><div class="cell-wrap" title="${esc(d.website_name)}">${esc(d.website_name)}</div></td>
+        <td><div class="cell-wrap" title="${esc(d.company_name)}">${esc(d.company_name)}</div></td>
+        <td><div class="cell-wrap" title="${esc(d.core_service)}">${esc(d.core_service)}</div></td>
+        <td><div class="cell-wrap" title="${esc(d.target_customer)}">${esc(d.target_customer)}</div></td>
+        <td>${emails.map(e => `<span class="pill">${esc(e)}</span>`).join("") || "—"}</td>
+        <td><div class="cell-wrap">${esc(d.mobile_number) || "—"}</div></td>
+        <td><div class="cell-wrap" title="${esc(d.address)}">${esc(d.address) || "—"}</div></td>
+      </tr>`;
+    }).join("");
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────
+  function setStatus(type, msg) {
+    const el = document.getElementById("enrichStatus");
+    el.className = `status ${type}`;
+    document.getElementById("enrichStatusText").textContent = msg;
+    if (type !== "loading") {
+      const spinner = el.querySelector(".spinner");
+      if (spinner) spinner.style.display = "none";
+    }
+  }
+
+  function esc(str) {
+    if (!str) return "";
+    return String(str)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  let toastTimer;
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove("show"), 3000);
+  }
+</script>
+
+</body>
+</html>
