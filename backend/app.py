@@ -1,8 +1,5 @@
 """
-Flask Backend — Company Enrichment API
-Serves the frontend at / and provides:
-  POST /enrich  → { "url": "...", "website_name": "..." }
-  GET  /results → all enriched companies
+Flask Backend — Company Enrichment API (uses Groq instead of Gemini)
 """
 
 from flask import Flask, request, jsonify, send_from_directory
@@ -16,14 +13,14 @@ import os
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from rapidfuzz import fuzz
-from google import genai
+from groq import Groq
 
 # ── Config ───────────────────────────────────────────────────
 app = Flask(__name__, static_folder="static")
 CORS(app)
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY_HERE")
-client = genai.Client(api_key=GEMINI_API_KEY)
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "YOUR_GROQ_API_KEY_HERE")
+groq_client = Groq(api_key=GROQ_API_KEY)
 
 RESULTS_FILE = "results.json"
 
@@ -115,8 +112,6 @@ def extract_phone(text):
 
 def get_relevant_links(base_url, max_links=4):
     found = set()
-
-    # Sitemap first
     try:
         sitemap_url = base_url.rstrip("/") + "/sitemap.xml"
         r = requests.get(sitemap_url, timeout=8, headers=HEADERS)
@@ -131,7 +126,6 @@ def get_relevant_links(base_url, max_links=4):
     except Exception:
         pass
 
-    # Homepage link extraction
     try:
         r = requests.get(base_url, timeout=10, headers=HEADERS)
         soup = BeautifulSoup(r.text, "lxml")
@@ -177,11 +171,13 @@ Rules:
 - The outreach_opener must mention the company by name and reference a real detail from their site"""
 
     try:
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt,
+        response = groq_client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=800,
         )
-        raw = response.text.strip()
+        raw = response.choices[0].message.content.strip()
         raw = re.sub(r'^```(?:json)?\s*', '', raw)
         raw = re.sub(r'\s*```$', '', raw)
         data = json.loads(raw)
@@ -191,7 +187,7 @@ Rules:
                 data[key] = "N/A"
         return data
     except Exception as e:
-        print(f"  Gemini error: {e}")
+        print(f"  Groq error: {e}")
         return {k: "N/A" for k in ["company_name", "core_service",
                                     "target_customer", "probable_pain_point",
                                     "outreach_opener"]}
